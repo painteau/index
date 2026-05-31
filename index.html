@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Index</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@200;300;400;500&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="ambient" aria-hidden="true"></div>
+
+  <main class="app">
+    <div class="centerblock">
+
+      <!-- Ligne 1 : heure + date -->
+      <div class="row row-clock">
+        <span class="clock" id="clock">00:00</span>
+        <span class="clock-seconds" id="clockSeconds">00</span>
+        <span class="row-sep">·</span>
+        <span class="date" id="date"></span>
+      </div>
+
+      <!-- Ligne 2 : météo -->
+      <div class="row row-weather">
+        <div class="weather-skeleton" id="weatherSkeleton">
+          <div class="sk-block sk-short"></div>
+          <div class="sk-block sk-long"></div>
+        </div>
+        <div class="row-weather-content" id="weatherCard" hidden>
+          <span class="w-icon" id="weatherIcon">☁</span>
+          <span class="w-temp" id="weatherTemp">--°</span>
+          <span class="w-condition" id="weatherCondition">--</span>
+          <span class="row-sep">·</span>
+          <span class="w-city" id="weatherCity">--</span>
+          <span class="row-line"></span>
+          <span class="w-label" title="Pluie aujourd'hui">🌧</span><span class="w-stat" id="rainToday">--</span>
+          <span class="w-label" title="Prochaine heure">💧</span><span class="w-stat rain-next" id="rainHour">--</span>
+          <span class="w-label" title="Ressenti">🌡</span><span class="w-stat" id="feelsLike">--</span>
+        </div>
+        <span class="weather-error" id="weatherError" hidden>Météo indisponible</span>
+      </div>
+
+      <!-- Ligne 3 : search -->
+      <section class="search-section">
+        <div class="search-wrap">
+          <button class="engine-btn" id="engineBtn" aria-label="Changer de moteur de recherche">
+            <span class="engine-icon" id="engineIcon">G</span>
+          </button>
+          <input
+            type="search"
+            class="search-input"
+            id="searchInput"
+            placeholder="Rechercher ou saisir une URL…"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Recherche"
+          />
+          <button class="search-submit" id="searchSubmit" aria-label="Lancer la recherche">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </button>
+        </div>
+        <div class="engine-dropdown" id="engineDropdown" aria-hidden="true">
+          <div class="engine-dropdown-title">Moteur de recherche</div>
+          <button class="engine-opt" data-engine="google" data-icon="G">
+            <span class="opt-icon" style="color:#4285f4">G</span><span>Google</span>
+          </button>
+          <button class="engine-opt" data-engine="duckduckgo" data-icon="D">
+            <span class="opt-icon" style="color:#de5833">D</span><span>DuckDuckGo</span>
+          </button>
+          <button class="engine-opt" data-engine="brave" data-icon="B">
+            <span class="opt-icon" style="color:#f96000">B</span><span>Brave Search</span>
+          </button>
+          <button class="engine-opt" data-engine="bing" data-icon="Bi">
+            <span class="opt-icon" style="color:#0078d4">Bi</span><span>Bing</span>
+          </button>
+          <button class="engine-opt" data-engine="qwant" data-icon="Q">
+            <span class="opt-icon" style="color:#5c7cf4">Q</span><span>Qwant</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Apps -->
+      <div class="apps-grid" id="appsGrid"></div>
+
+    </div>
+  </main>
+
+  <div class="overlay" id="overlay" aria-hidden="true"></div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

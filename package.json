@@ -1,0 +1,19 @@
+{
+  "name": "index",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "pages:dev": "wrangler pages dev dist --d1=DB",
+    "pages:deploy": "wrangler pages deploy dist",
+    "db:create": "wrangler d1 create index-db",
+    "db:migrate:local": "wrangler d1 execute index-db --local --file=./migrations/0001_initial.sql",
+    "db:migrate:remote": "wrangler d1 execute index-db --file=./migrations/0001_initial.sql"
+  },
+  "devDependencies": {
+    "vite": "^5.4.0",
+    "wrangler": "^3.80.0"
+  }
+}
