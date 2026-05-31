@@ -12,6 +12,7 @@
 <body>
   <div class="grain" aria-hidden="true"></div>
   <div class="ambient" aria-hidden="true"></div>
+  <button class="theme-toggle" id="themeToggle" aria-label="Basculer le thème" title="Thème clair / sombre">🌙</button>
 
   <main class="app">
     <div class="centerblock">
@@ -31,15 +32,13 @@
           <div class="sk-block sk-long"></div>
         </div>
         <div class="row-weather-content" id="weatherCard" hidden>
-          <span class="w-icon" id="weatherIcon">☁</span>
-          <span class="w-temp" id="weatherTemp">--°</span>
-          <span class="w-condition" id="weatherCondition">--</span>
-          <span class="row-sep">·</span>
           <span class="w-city" id="weatherCity">--</span>
           <span class="row-line"></span>
-          <span class="w-label" title="Pluie aujourd'hui">🌧</span><span class="w-stat" id="rainToday">--</span>
-          <span class="w-label" title="Prochaine heure">💧</span><span class="w-stat rain-next" id="rainHour">--</span>
-          <span class="w-label" title="Ressenti">🌡</span><span class="w-stat" id="feelsLike">--</span>
+          <span class="w-icon" id="weatherIcon">☁</span>
+          <span class="w-temp" id="weatherTemp">--°</span>
+          <span class="row-line"></span>
+          <span class="w-label">🌧</span><span class="w-stat" id="rainToday">--</span>
+          <span class="w-label">+1h</span><span class="w-stat rain-next" id="rainHour">--</span>
         </div>
         <span class="weather-error" id="weatherError" hidden>Météo indisponible</span>
       </div>

@@ -2,6 +2,25 @@
 //  Index — main.js
 // ============================================================
 
+// ── Theme ────────────────────────────────────────────────────
+const savedTheme = localStorage.getItem('theme') || 'dark'
+document.documentElement.dataset.theme = savedTheme
+
+const elThemeToggle = document.getElementById('themeToggle')
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme
+  localStorage.setItem('theme', theme)
+  elThemeToggle.textContent = theme === 'dark' ? '🌙' : '☀️'
+}
+
+applyTheme(savedTheme)
+
+elThemeToggle.addEventListener('click', () => {
+  applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark')
+})
+
+
 // ── Clock ───────────────────────────────────────────────────
 const DAYS_FR = ['Dimanche','Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi']
 const MONTHS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre']
@@ -251,10 +270,8 @@ async function loadWeather() {
     // Update DOM
     if (elWeatherIcon) elWeatherIcon.textContent = WMO_ICON[code] ?? '🌡'
     document.getElementById('weatherTemp').textContent      = `${temp}°`
-    document.getElementById('weatherCondition').textContent = WMO[code] ?? `Code ${code}`
     document.getElementById('weatherCity').textContent      = city
     document.getElementById('rainToday').textContent        = `${rainToday}mm`
-    document.getElementById('feelsLike').textContent        = `${feels}°`
 
     const elRainHour = document.getElementById('rainHour')
     elRainHour.textContent = `${rainNextHour}mm`

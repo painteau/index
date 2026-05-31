@@ -7,18 +7,41 @@
   --bg:            #07070d;
   --bg-surface:    rgba(255, 255, 255, 0.035);
   --bg-hover:      rgba(255, 255, 255, 0.06);
-  --border:        rgba(255, 255, 255, 0.07);
+  --border:        rgba(255, 255, 255, 0.10);
   --border-focus:  rgba(239, 159, 70, 0.35);
   --text:          #ededf5;
-  --text-dim:      rgba(237, 237, 245, 0.38);
-  --text-faint:    rgba(237, 237, 245, 0.18);
+  --text-dim:      rgba(237, 237, 245, 0.85);
+  --text-faint:    rgba(237, 237, 245, 0.70);
   --accent:        #ef9f46;
   --accent-glow:   rgba(239, 159, 70, 0.12);
   --accent-strong: rgba(239, 159, 70, 0.22);
   --blue:          #5eadf7;
-  --blue-dim:      rgba(94, 173, 247, 0.7);
+  --blue-dim:      rgba(94, 173, 247, 0.85);
   --green:         #4ade80;
 
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg:            #f0efe9;
+  --bg-surface:    rgba(0, 0, 0, 0.04);
+  --bg-hover:      rgba(0, 0, 0, 0.07);
+  --border:        rgba(0, 0, 0, 0.12);
+  --border-focus:  rgba(200, 120, 20, 0.35);
+  --text:          #1a1a2e;
+  --text-dim:      rgba(26, 26, 46, 0.80);
+  --text-faint:    rgba(26, 26, 46, 0.60);
+  --accent:        #c97820;
+  --accent-glow:   rgba(201, 120, 32, 0.10);
+  --accent-strong: rgba(201, 120, 32, 0.18);
+  --blue:          #1d6fbf;
+  --blue-dim:      rgba(29, 111, 191, 0.85);
+  --green:         #15803d;
+
+  color-scheme: light;
+}
+
+:root {
   --font-display:  'Geist', system-ui, sans-serif;
   --font-ui:       'Geist', system-ui, sans-serif;
   --font-mono:     'Geist Mono', 'Fira Code', monospace;
@@ -48,6 +71,7 @@ body {
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   user-select: none;
+  transition: background-color 0.3s, color 0.3s;
 }
 
 /* ── Grain overlay ──────────────────────────────────────── */
@@ -80,6 +104,41 @@ body {
   background:
     radial-gradient(ellipse 60% 40% at 50% 0%, rgba(239, 159, 70, 0.06) 0%, transparent 70%),
     radial-gradient(ellipse 80% 50% at 50% 100%, rgba(94, 173, 247, 0.04) 0%, transparent 70%);
+  transition: background 0.3s;
+}
+
+[data-theme="light"] .ambient {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(201, 120, 32, 0.06) 0%, transparent 70%),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(29, 111, 191, 0.04) 0%, transparent 70%);
+}
+
+/* ── Theme toggle ───────────────────────────────────────── */
+.theme-toggle {
+  position: fixed;
+  top: 0.85rem;
+  right: 1rem;
+  z-index: 300;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.15s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.theme-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+  transform: scale(1.1);
 }
 
 /* ── Layout ─────────────────────────────────────────────── */
@@ -118,7 +177,7 @@ body {
 }
 
 .row-sep {
-  color: var(--border);
+  color: var(--text-faint);
   font-size: 0.7rem;
 }
 
@@ -137,7 +196,7 @@ body {
   font-family: var(--font-mono);
   font-size: 0.88rem;
   font-weight: 500;
-  color: rgba(255,255,255,0.75);
+  color: var(--text);
   letter-spacing: 0.02em;
 }
 
@@ -159,7 +218,7 @@ body {
 .w-icon  { font-size: 0.78rem; }
 .w-temp  { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 500; color: var(--text-dim); }
 .w-condition { color: var(--text-faint); }
-.w-city  { color: var(--text-faint); opacity: 0.7; }
+.w-city  { color: var(--text-faint); }
 .w-label { font-size: 0.72rem; margin-left: 0.15rem; }
 .w-stat  {
   font-family: var(--font-mono);
