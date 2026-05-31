@@ -322,3 +322,191 @@ function renderApps(apps) {
 }
 
 loadApps()
+
+// ── Settings ──────────────────────────────────────────────
+let sessionToken = localStorage.getItem('sessionToken') || null
+
+const elSettingsBtn     = document.getElementById('settingsBtn')
+const elSettingsOverlay = document.getElementById('settingsOverlay')
+const elLoginPanel      = document.getElementById('loginPanel')
+const elSettingsPanel   = document.getElementById('settingsPanel')
+const elLoginTitle      = document.getElementById('loginTitle')
+const elLoginHint       = document.getElementById('loginHint')
+const elLoginInput      = document.getElementById('loginInput')
+const elLoginError      = document.getElementById('loginError')
+const elLoginCancel     = document.getElementById('loginCancel')
+const elLoginSubmit     = document.getElementById('loginSubmit')
+const elLogoutBtn       = document.getElementById('logoutBtn')
+const elSettingsClose   = document.getElementById('settingsClose')
+const elSettingsAppList = document.getElementById('settingsAppList')
+const elAddAppBtn       = document.getElementById('addAppBtn')
+const elAddAppForm      = document.getElementById('addAppForm')
+const elAddAppCancel    = document.getElementById('addAppCancel')
+const elAddAppSubmit    = document.getElementById('addAppSubmit')
+
+function authHeaders() {
+  return sessionToken ? { 'X-Session-Token': sessionToken } : {}
+}
+
+async function checkAuth() {
+  if (!sessionToken) return { ok: false, setup: false }
+  try {
+    const r = await fetch('/api/auth/check', { headers: authHeaders() })
+    return await r.json()
+  } catch { return { ok: false, setup: false } }
+}
+
+function showLoginPanel(hint, isSetup = false) {
+  elLoginPanel.removeAttribute('hidden')
+  elSettingsPanel.setAttribute('hidden', '')
+  elLoginInput.value = ''
+  elLoginError.setAttribute('hidden', '')
+  elLoginError.textContent = ''
+  elLoginHint.textContent = hint
+  elLoginSubmit.textContent = isSetup ? 'Définir' : 'Connexion'
+  elLoginTitle.textContent = isSetup ? 'Créer un mot de passe' : 'Accès paramètres'
+  setTimeout(() => elLoginInput.focus(), 50)
+}
+
+async function openSettings() {
+  elLoginPanel.setAttribute('hidden', '')
+  elSettingsPanel.setAttribute('hidden', '')
+  elSettingsOverlay.removeAttribute('hidden')
+  const { ok, setup } = await checkAuth()
+  if (ok) {
+    showSettingsPanel()
+  } else if (setup) {
+    showLoginPanel('Premier accès : choisissez un mot de passe', true)
+  } else {
+    showLoginPanel('Entrez votre mot de passe')
+  }
+}
+
+function closeSettings() {
+  elSettingsOverlay.setAttribute('hidden', '')
+}
+
+async function showSettingsPanel() {
+  elLoginPanel.setAttribute('hidden', '')
+  elSettingsPanel.removeAttribute('hidden')
+  elAddAppForm.setAttribute('hidden', '')
+  await refreshSettingsApps()
+}
+
+async function refreshSettingsApps() {
+  try {
+    const r = await fetch('/api/apps')
+    const apps = await r.json()
+    renderSettingsApps(apps)
+  } catch {}
+}
+
+function renderSettingsApps(apps) {
+  elSettingsAppList.innerHTML = apps.map(app => {
+    const initial = (app.name || '?').slice(0, 2).toUpperCase()
+    const iconHtml = app.icon
+      ? `<img class="app-row-icon" src="${app.icon}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'app-row-icon-fallback',textContent:'${initial}'}))">`
+      : `<div class="app-row-icon-fallback">${initial}</div>`
+    return `<div class="app-row" data-id="${app.id}">
+      ${iconHtml}
+      <span class="app-row-name">${app.name}</span>
+      <span class="app-row-url">${new URL(app.url).hostname}</span>
+      <button class="btn-icon" onclick="editApp(${app.id})" title="Modifier">✏️</button>
+      <button class="btn-icon danger" onclick="deleteApp(${app.id},'${app.name.replace(/'/g,"\\'")}')">🗑</button>
+    </div>`
+  }).join('')
+}
+
+window.deleteApp = async (id, name) => {
+  if (!confirm(`Supprimer "${name}" ?`)) return
+  await fetch(`/api/apps/${id}`, { method: 'DELETE', headers: authHeaders() })
+  loadApps()
+  refreshSettingsApps()
+}
+
+window.editApp = async (id) => {
+  const row = document.querySelector(`.app-row[data-id="${id}"]`)
+  if (!row) return
+  const name = row.querySelector('.app-row-name').textContent
+  const hostname = row.querySelector('.app-row-url').textContent
+
+  const newName = prompt('Nom :', name)
+  if (newName === null) return
+  const newUrl  = prompt('URL :', `https://${hostname}`)
+  if (newUrl === null) return
+  const newIcon = prompt('Icône URL (laisser vide pour garder) :', '')
+
+  const r = await fetch(`/api/apps/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ name: newName, url: newUrl, icon: newIcon || undefined, order_index: 0 })
+  })
+  if (r.ok) { loadApps(); refreshSettingsApps() }
+}
+
+// Login
+elLoginSubmit.addEventListener('click', async () => {
+  const pw = elLoginInput.value.trim()
+  if (!pw) return
+  elLoginError.setAttribute('hidden', '')
+  const r = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: pw })
+  })
+  const data = await r.json()
+  if (r.ok) {
+    sessionToken = data.token
+    localStorage.setItem('sessionToken', sessionToken)
+    showSettingsPanel()
+  } else {
+    elLoginError.textContent = data.error || 'Erreur'
+    elLoginError.removeAttribute('hidden')
+  }
+})
+elLoginInput.addEventListener('keydown', e => { if (e.key === 'Enter') elLoginSubmit.click() })
+elLoginCancel.addEventListener('click', closeSettings)
+
+// Logout
+elLogoutBtn.addEventListener('click', async () => {
+  await fetch('/api/auth/logout', { method: 'POST', headers: authHeaders() })
+  sessionToken = null
+  localStorage.removeItem('sessionToken')
+  closeSettings()
+})
+
+// Close
+elSettingsClose.addEventListener('click', closeSettings)
+elSettingsOverlay.addEventListener('click', e => { if (e.target === elSettingsOverlay) closeSettings() })
+elSettingsBtn.addEventListener('click', openSettings)
+
+// Add app
+elAddAppBtn.addEventListener('click', () => {
+  elAddAppForm.removeAttribute('hidden')
+  elAddAppBtn.setAttribute('hidden', '')
+  document.getElementById('newAppName').focus()
+})
+elAddAppCancel.addEventListener('click', () => {
+  elAddAppForm.setAttribute('hidden', '')
+  elAddAppBtn.removeAttribute('hidden')
+})
+elAddAppSubmit.addEventListener('click', async () => {
+  const name = document.getElementById('newAppName').value.trim()
+  const url  = document.getElementById('newAppUrl').value.trim()
+  const icon = document.getElementById('newAppIcon').value.trim()
+  if (!name || !url) return
+  const r = await fetch('/api/apps', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ name, url, icon })
+  })
+  if (r.ok) {
+    document.getElementById('newAppName').value = ''
+    document.getElementById('newAppUrl').value  = ''
+    document.getElementById('newAppIcon').value = ''
+    elAddAppForm.setAttribute('hidden', '')
+    elAddAppBtn.removeAttribute('hidden')
+    loadApps()
+    refreshSettingsApps()
+  }
+})

@@ -58,6 +58,7 @@
 
 /* ── Reset ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
 html, body {
   height: 100%;
   overflow: hidden;
@@ -587,6 +588,238 @@ body {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Settings button ────────────────────────────────────── */
+.settings-btn {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 300;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  transition: background 0.2s, color 0.2s, transform 0.2s;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+.settings-btn:hover { background: var(--bg-hover); color: var(--text); transform: rotate(30deg); }
+
+/* ── Settings panel ─────────────────────────────────────── */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fade-in 0.2s ease;
+}
+.settings-overlay[hidden] { display: none; }
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.settings-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-lg);
+  animation: panel-in 0.2s cubic-bezier(0.16,1,0.3,1);
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.settings-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.settings-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-icon {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.8rem;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-icon:hover { background: var(--bg-hover); color: var(--text); }
+.btn-icon.danger:hover { background: rgba(239,68,68,0.12); color: #f87171; border-color: rgba(239,68,68,0.3); }
+
+.settings-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.75rem 1.25rem 1.25rem;
+}
+
+.settings-section-title {
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 0.75rem 0 0.5rem;
+}
+
+/* App rows */
+.app-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  transition: background 0.12s;
+}
+.app-row:hover { background: var(--bg-surface); }
+
+.app-row-icon {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  object-fit: contain;
+  background: var(--bg-hover);
+  flex-shrink: 0;
+}
+.app-row-icon-fallback {
+  width: 24px; height: 24px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 500;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.app-row-name {
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-row-url {
+  font-size: 0.7rem;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+/* Forms */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+
+.settings-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.settings-input:focus { border-color: var(--border-focus); }
+.settings-input::placeholder { color: var(--text-faint); }
+
+.settings-form-row { display: flex; gap: 0.5rem; }
+
+.btn {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  font-family: var(--font-ui);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #07070d;
+  font-weight: 500;
+}
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-ghost { background: none; color: var(--text-faint); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text); }
+.btn-add {
+  width: 100%;
+  margin-top: 0.5rem;
+  background: none;
+  color: var(--accent);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 0.4rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-add:hover { background: var(--accent-glow); border-color: rgba(239,159,70,0.3); }
+
+/* Login form */
+.login-panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  width: min(320px, calc(100vw - 2rem));
+  box-shadow: var(--shadow-lg);
+  animation: panel-in 0.2s cubic-bezier(0.16,1,0.3,1);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.login-title { font-size: 0.9rem; font-weight: 500; color: var(--text); }
+.login-hint { font-size: 0.75rem; color: var(--text-faint); }
+.login-error { font-size: 0.75rem; color: #f87171; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 480px) {

@@ -91,6 +91,49 @@
   </main>
 
   <div class="overlay" id="overlay" aria-hidden="true"></div>
+
+  <button class="settings-btn" id="settingsBtn" aria-label="Paramètres">⚙️</button>
+
+  <!-- Settings overlay -->
+  <div class="settings-overlay" id="settingsOverlay" hidden>
+    <!-- Login panel (shown when not auth) -->
+    <div class="login-panel" id="loginPanel">
+      <div class="login-title" id="loginTitle">Accès paramètres</div>
+      <div class="login-hint" id="loginHint">Entrez votre mot de passe</div>
+      <input type="password" class="settings-input" id="loginInput" placeholder="Mot de passe" autocomplete="current-password" />
+      <div class="login-error" id="loginError" hidden></div>
+      <div class="settings-form-row">
+        <button class="btn btn-ghost" id="loginCancel">Annuler</button>
+        <button class="btn btn-primary" id="loginSubmit" style="flex:1">Connexion</button>
+      </div>
+    </div>
+
+    <!-- Settings panel (shown when auth) -->
+    <div class="settings-panel" id="settingsPanel" hidden>
+      <div class="settings-header">
+        <span class="settings-title">⚙️ Paramètres</span>
+        <div class="settings-header-actions">
+          <button class="btn-icon danger" id="logoutBtn" title="Déconnexion">🚪</button>
+          <button class="btn-icon" id="settingsClose" title="Fermer">✕</button>
+        </div>
+      </div>
+      <div class="settings-body">
+        <div class="settings-section-title">Applications</div>
+        <div id="settingsAppList"></div>
+        <button class="btn-add" id="addAppBtn">+ Ajouter une app</button>
+        <div class="settings-form" id="addAppForm" hidden>
+          <input type="text"  class="settings-input" id="newAppName"  placeholder="Nom" />
+          <input type="url"   class="settings-input" id="newAppUrl"   placeholder="URL (https://...)" />
+          <input type="url"   class="settings-input" id="newAppIcon"  placeholder="Icône URL (optionnel)" />
+          <div class="settings-form-row">
+            <button class="btn btn-ghost" id="addAppCancel">Annuler</button>
+            <button class="btn btn-primary" id="addAppSubmit" style="flex:1">Ajouter</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>
