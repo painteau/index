@@ -6,6 +6,9 @@ const CORS = {
   'Access-Control-Allow-Headers': 'Content-Type,X-Session-Token',
 }
 
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MINUTES = 15
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -18,6 +21,11 @@ function randomToken() {
   return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+async function sha256(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 async function requireAuth(request, DB) {
   const token = request.headers.get('X-Session-Token')
   if (!token) return false
@@ -25,6 +33,12 @@ async function requireAuth(request, DB) {
     `SELECT token FROM sessions WHERE token=? AND expires_at > datetime('now')`
   ).bind(token).first()
   return !!row
+}
+
+function getClientIP(request) {
+  return request.headers.get('CF-Connecting-IP')
+    || request.headers.get('X-Forwarded-For')?.split(',')[0].trim()
+    || 'unknown'
 }
 
 export async function onRequest({ request, env }) {
@@ -39,16 +53,53 @@ export async function onRequest({ request, env }) {
 
     // ── /auth ────────────────────────────────────────────────
     if (path === '/auth/login' && method === 'POST') {
+      const ip = getClientIP(request)
+
+      // Check rate limit
+      const attempt = await DB.prepare(
+        `SELECT attempts, locked_until FROM login_attempts WHERE ip=?`
+      ).bind(ip).first()
+
+      if (attempt) {
+        if (attempt.locked_until) {
+          const lockedUntil = new Date(attempt.locked_until + 'Z')
+          if (lockedUntil > new Date()) {
+            const mins = Math.ceil((lockedUntil - new Date()) / 60000)
+            return json({ error: `Trop de tentatives. Réessayez dans ${mins} min.` }, 429)
+          }
+        }
+        if (attempt.attempts >= MAX_ATTEMPTS) {
+          const until = new Date(Date.now() + LOCKOUT_MINUTES * 60000).toISOString().replace('T', ' ').slice(0, 19)
+          await DB.prepare(`UPDATE login_attempts SET locked_until=? WHERE ip=?`).bind(until, ip).run()
+          return json({ error: `Trop de tentatives. Compte bloqué ${LOCKOUT_MINUTES} min.` }, 429)
+        }
+      }
+
       const { password } = await request.json()
       const row = await DB.prepare(`SELECT value FROM settings WHERE key='admin_password'`).first()
       const stored = row?.value ?? ''
 
       if (stored === '') {
-        // First time: set the password
-        if (!password || password.length < 4) return json({ error: 'Mot de passe trop court (4 min)' }, 400)
-        await DB.prepare(`INSERT OR REPLACE INTO settings (key,value) VALUES ('admin_password',?)`).bind(password).run()
-      } else if (password !== stored) {
-        return json({ error: 'Mot de passe incorrect' }, 401)
+        // First time: hash and store password
+        if (!password || password.length < 6) return json({ error: 'Mot de passe trop court (6 min)' }, 400)
+        const hash = await sha256(password)
+        await DB.prepare(`INSERT OR REPLACE INTO settings (key,value) VALUES ('admin_password',?)`).bind(hash).run()
+        // Reset attempts on success
+        await DB.prepare(`DELETE FROM login_attempts WHERE ip=?`).bind(ip).run()
+      } else {
+        const hash = await sha256(password)
+        if (hash !== stored) {
+          // Increment attempts
+          if (attempt) {
+            await DB.prepare(`UPDATE login_attempts SET attempts=attempts+1 WHERE ip=?`).bind(ip).run()
+          } else {
+            await DB.prepare(`INSERT INTO login_attempts (ip, attempts) VALUES (?,1)`).bind(ip).run()
+          }
+          const left = MAX_ATTEMPTS - ((attempt?.attempts ?? 0) + 1)
+          return json({ error: `Mot de passe incorrect. ${left > 0 ? `${left} tentative(s) restante(s).` : 'Compte bloqué.'}` }, 401)
+        }
+        // Success: reset attempts
+        await DB.prepare(`DELETE FROM login_attempts WHERE ip=?`).bind(ip).run()
       }
 
       const token = randomToken()
