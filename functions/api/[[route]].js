@@ -55,7 +55,6 @@ export async function onRequest({ request, env }) {
     if (path === '/auth/login' && method === 'POST') {
       const ip = getClientIP(request)
 
-      // Check rate limit
       const attempt = await DB.prepare(
         `SELECT attempts, locked_until FROM login_attempts WHERE ip=?`
       ).bind(ip).first()
@@ -80,16 +79,13 @@ export async function onRequest({ request, env }) {
       const stored = row?.value ?? ''
 
       if (stored === '') {
-        // First time: hash and store password
         if (!password || password.length < 6) return json({ error: 'Mot de passe trop court (6 min)' }, 400)
         const hash = await sha256(password)
         await DB.prepare(`INSERT OR REPLACE INTO settings (key,value) VALUES ('admin_password',?)`).bind(hash).run()
-        // Reset attempts on success
         await DB.prepare(`DELETE FROM login_attempts WHERE ip=?`).bind(ip).run()
       } else {
         const hash = await sha256(password)
         if (hash !== stored) {
-          // Increment attempts
           if (attempt) {
             await DB.prepare(`UPDATE login_attempts SET attempts=attempts+1 WHERE ip=?`).bind(ip).run()
           } else {
@@ -98,7 +94,6 @@ export async function onRequest({ request, env }) {
           const left = MAX_ATTEMPTS - ((attempt?.attempts ?? 0) + 1)
           return json({ error: `Mot de passe incorrect. ${left > 0 ? `${left} tentative(s) restante(s).` : 'Compte bloqué.'}` }, 401)
         }
-        // Success: reset attempts
         await DB.prepare(`DELETE FROM login_attempts WHERE ip=?`).bind(ip).run()
       }
 
@@ -116,16 +111,15 @@ export async function onRequest({ request, env }) {
 
     if (path === '/auth/check' && method === 'GET') {
       const ok = await requireAuth(request, DB)
-      // Also return whether password is set
       const row = await DB.prepare(`SELECT value FROM settings WHERE key='admin_password'`).first()
       return json({ ok, setup: !row?.value })
     }
 
-    // ── /apps ────────────────────────────────────────────────
-    if (path === '/apps') {
+    // ── /categories ──────────────────────────────────────────
+    if (path === '/categories') {
       if (method === 'GET') {
         const { results } = await DB.prepare(
-          'SELECT * FROM apps ORDER BY order_index, id'
+          'SELECT * FROM categories ORDER BY order_index, id'
         ).all()
         return json(results)
       }
@@ -133,8 +127,46 @@ export async function onRequest({ request, env }) {
         if (!await requireAuth(request, DB)) return json({ error: 'Non autorisé' }, 401)
         const b = await request.json()
         const { results } = await DB.prepare(
-          'INSERT INTO apps (name, url, icon, order_index) VALUES (?,?,?,?) RETURNING *'
-        ).bind(b.name, b.url, b.icon ?? '', b.order_index ?? 0).all()
+          'INSERT INTO categories (name, order_index) VALUES (?,?) RETURNING *'
+        ).bind(b.name, b.order_index ?? 0).all()
+        return json(results[0], 201)
+      }
+    }
+
+    const catMatch = path.match(/^\/categories\/(\d+)$/)
+    if (catMatch) {
+      const id = catMatch[1]
+      if (method === 'PUT') {
+        if (!await requireAuth(request, DB)) return json({ error: 'Non autorisé' }, 401)
+        const b = await request.json()
+        await DB.prepare(
+          'UPDATE categories SET name=?,order_index=? WHERE id=?'
+        ).bind(b.name, b.order_index ?? 0, id).run()
+        return json({ ok: true })
+      }
+      if (method === 'DELETE') {
+        if (!await requireAuth(request, DB)) return json({ error: 'Non autorisé' }, 401)
+        await DB.prepare('UPDATE apps SET category_id=NULL WHERE category_id=?').bind(id).run()
+        await DB.prepare('DELETE FROM categories WHERE id=?').bind(id).run()
+        return json({ ok: true })
+      }
+    }
+
+    // ── /apps ────────────────────────────────────────────────
+    if (path === '/apps') {
+      if (method === 'GET') {
+        const authed = await requireAuth(request, DB)
+        const { results } = authed
+          ? await DB.prepare('SELECT * FROM apps ORDER BY order_index, id').all()
+          : await DB.prepare('SELECT * FROM apps WHERE public=1 ORDER BY order_index, id').all()
+        return json(results)
+      }
+      if (method === 'POST') {
+        if (!await requireAuth(request, DB)) return json({ error: 'Non autorisé' }, 401)
+        const b = await request.json()
+        const { results } = await DB.prepare(
+          'INSERT INTO apps (name, url, icon, order_index, public, category_id) VALUES (?,?,?,?,?,?) RETURNING *'
+        ).bind(b.name, b.url, b.icon ?? '', b.order_index ?? 0, b.public ? 1 : 0, b.category_id ?? null).all()
         return json(results[0], 201)
       }
     }
@@ -146,8 +178,8 @@ export async function onRequest({ request, env }) {
         if (!await requireAuth(request, DB)) return json({ error: 'Non autorisé' }, 401)
         const b = await request.json()
         await DB.prepare(
-          'UPDATE apps SET name=?,url=?,icon=?,order_index=? WHERE id=?'
-        ).bind(b.name, b.url, b.icon ?? '', b.order_index ?? 0, id).run()
+          'UPDATE apps SET name=?,url=?,icon=?,order_index=?,public=?,category_id=? WHERE id=?'
+        ).bind(b.name, b.url, b.icon ?? '', b.order_index ?? 0, b.public ? 1 : 0, b.category_id ?? null, id).run()
         return json({ ok: true })
       }
       if (method === 'DELETE') {

@@ -81,6 +81,12 @@
           <button class="engine-opt" data-engine="qwant" data-icon="Q">
             <span class="opt-icon" style="color:#5c7cf4">Q</span><span>Qwant</span>
           </button>
+          <button class="engine-opt" data-engine="whoogle" data-icon="W">
+            <span class="opt-icon" style="color:#4ade80">W</span><span>Whoogle</span>
+          </button>
+          <button class="engine-opt" data-engine="custom" data-icon="✦">
+            <span class="opt-icon" style="color:#ef9f46">✦</span><span>Personnalisé</span>
+          </button>
         </div>
       </section>
 
@@ -118,7 +124,37 @@
         </div>
       </div>
       <div class="settings-body">
-        <div class="settings-section-title">Applications</div>
+        <div class="settings-section-title">Catégories</div>
+        <div id="settingsCatList"></div>
+        <div class="settings-form" id="addCatForm" hidden>
+          <input type="text" class="settings-input" id="newCatName" placeholder="Nom de la catégorie" />
+          <div class="settings-form-row">
+            <button class="btn btn-ghost" id="addCatCancel">Annuler</button>
+            <button class="btn btn-primary" id="addCatSubmit" style="flex:1">Ajouter</button>
+          </div>
+        </div>
+        <button class="btn-add" id="addCatBtn">+ Ajouter une catégorie</button>
+
+        <div class="settings-section-title" style="margin-top:1.25rem">Recherche</div>
+        <div class="settings-search-section">
+          <select class="settings-select" id="settingsEngineSelect">
+            <option value="google">Google</option>
+            <option value="duckduckgo">DuckDuckGo</option>
+            <option value="brave">Brave Search</option>
+            <option value="bing">Bing</option>
+            <option value="qwant">Qwant</option>
+            <option value="whoogle">Whoogle</option>
+            <option value="custom">Personnalisé</option>
+          </select>
+          <div id="customEngineRow" hidden>
+            <input type="url" class="settings-input" id="customEngineUrl" placeholder="https://moteur.com/search?q=" style="margin-top:0.4rem" />
+            <div class="settings-form-row" style="margin-top:0.4rem">
+              <button class="btn btn-primary" id="saveCustomEngine">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section-title" style="margin-top:1.25rem">Applications</div>
         <div id="settingsAppList"></div>
         <button class="btn-add" id="addAppBtn">+ Ajouter une app</button>
         <div class="settings-form" id="addAppForm" hidden>
