@@ -1,3 +1,6 @@
+-- Schéma complet, rejouable sans effet sur une base existante.
+-- admin_password n'est jamais posé ici : voir scripts/hash-password.mjs.
+
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -11,7 +14,8 @@ CREATE TABLE IF NOT EXISTS apps (
   icon TEXT DEFAULT '',
   category_id INTEGER REFERENCES categories(id),
   order_index INTEGER DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  public INTEGER NOT NULL DEFAULT 1
 );
 
 CREATE TABLE IF NOT EXISTS bookmarks (
@@ -27,6 +31,19 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
+);
+
+-- token = empreinte SHA-256 du jeton remis au navigateur, jamais le jeton lui-même.
+CREATE TABLE IF NOT EXISTS sessions (
+  token TEXT PRIMARY KEY,
+  expires_at DATETIME NOT NULL
+);
+
+-- ip = adresse IPv4, ou préfixe /64 en IPv6.
+CREATE TABLE IF NOT EXISTS login_attempts (
+  ip TEXT PRIMARY KEY,
+  attempts INTEGER DEFAULT 0,
+  locked_until DATETIME
 );
 
 INSERT OR IGNORE INTO settings (key, value) VALUES

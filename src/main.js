@@ -2,6 +2,8 @@
 //  Index — main.js
 // ============================================================
 
+import { safeHttpUrl, roundCoord, initials } from './safe.js'
+
 // ── Theme ────────────────────────────────────────────────────
 const savedTheme = localStorage.getItem('theme') || 'dark'
 document.documentElement.dataset.theme = savedTheme
@@ -91,7 +93,8 @@ async function loadServerSettings() {
     const r = await fetch('/api/settings', { headers: authHeaders() })
     if (!r.ok) return
     const s = await r.json()
-    if (s.search_engine_custom_url) ENGINES.custom.url = s.search_engine_custom_url
+    const custom = safeHttpUrl(s.search_engine_custom_url)
+    if (custom) ENGINES.custom.url = custom
     if (s.search_engine) applyEngine(s.search_engine)
   } catch {}
 }
@@ -138,7 +141,8 @@ function doSearch() {
     const href = /^https?:\/\//i.test(q) ? q : `https://${q}`
     window.open(href, target)
   } else {
-    window.open(ENGINES[currentEngine].url + encodeURIComponent(q), target)
+    const base = safeHttpUrl(ENGINES[currentEngine].url) ? ENGINES[currentEngine].url : ENGINES.google.url
+    window.open(base + encodeURIComponent(q), target)
   }
   elSearchInput.value = ''
 }
@@ -180,16 +184,22 @@ const elWeatherIcon     = document.getElementById('weatherIcon')
 
 async function getCoords() {
   const saved = localStorage.getItem('weatherCoords')
-  if (saved) return JSON.parse(saved)
+  if (saved) {
+    // Les coordonnées enregistrées avant l'arrondi étaient au mètre près.
+    const { lat, lon } = JSON.parse(saved)
+    const coords = { lat: roundCoord(lat), lon: roundCoord(lon) }
+    localStorage.setItem('weatherCoords', JSON.stringify(coords))
+    return coords
+  }
   return new Promise(resolve => {
-    if (!navigator.geolocation) { resolve({ lat: 48.8566, lon: 2.3522 }); return }
+    if (!navigator.geolocation) { resolve({ lat: 48.86, lon: 2.35 }); return }
     navigator.geolocation.getCurrentPosition(
       pos => {
-        const coords = { lat: pos.coords.latitude, lon: pos.coords.longitude }
+        const coords = { lat: roundCoord(pos.coords.latitude), lon: roundCoord(pos.coords.longitude) }
         localStorage.setItem('weatherCoords', JSON.stringify(coords))
         resolve(coords)
       },
-      () => resolve({ lat: 48.8566, lon: 2.3522 }),
+      () => resolve({ lat: 48.86, lon: 2.35 }),
       { timeout: 5000 }
     )
   })
@@ -260,31 +270,66 @@ loadWeather()
 
 
 // ── Apps ─────────────────────────────────────────────────────
+// Tout le contenu venu de la base passe par textContent et setAttribute,
+// jamais par innerHTML : un nom ou une URL ne peut pas devenir du code.
 let sessionToken = localStorage.getItem('sessionToken') || null
 
 function authHeaders() {
   return sessionToken ? { 'X-Session-Token': sessionToken } : {}
 }
 
+function jsonHeaders() {
+  return { 'Content-Type': 'application/json', ...authHeaders() }
+}
+
+function el(tag, className, text) {
+  const node = document.createElement(tag)
+  if (className) node.className = className
+  if (text !== undefined) node.textContent = text
+  return node
+}
+
+// Icône de la tuile, ou ses initiales si elle n'en a pas ou ne charge pas.
+// Pas de service de favicons tiers : il recevrait le nom d'hôte de chaque tuile.
+function iconNode(app, imgClass, fallbackClass) {
+  const fallback = el('div', fallbackClass, initials(app.name))
+  const src = safeHttpUrl(app.icon)
+  if (!src) return fallback
+  const img = el('img', imgClass)
+  img.src = src
+  img.alt = ''
+  img.loading = 'lazy'
+  img.addEventListener('error', () => img.replaceWith(fallback), { once: true })
+  return img
+}
+
 function appCard(app) {
-  const initial = app.name.slice(0, 2)
-  const favicon = `https://www.google.com/s2/favicons?domain=${new URL(app.url).hostname}&sz=64`
-  const iconSrc = app.icon || favicon
-  const iconHtml = `<img class="app-icon" src="${iconSrc}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'app-icon-fallback',textContent:'${initial}'}))">`
-  return `<a class="app-item" href="${app.url}" target="_blank" rel="noopener" title="${app.name}">
-    ${iconHtml}
-    <span class="app-name">${app.name}</span>
-  </a>`
+  const href = safeHttpUrl(app.url)
+  const card = el(href ? 'a' : 'div', 'app-item')
+  if (href) {
+    card.href = href
+    card.target = '_blank'
+    card.rel = 'noopener noreferrer'
+  }
+  card.title = app.name
+  card.append(iconNode(app, 'app-icon', 'app-icon-fallback'), el('span', 'app-name', app.name))
+  return card
+}
+
+function appGrid(list, className) {
+  const grid = el('div', className)
+  grid.append(...list.map(appCard))
+  return grid
 }
 
 function renderApps(apps, categories) {
   const grid = document.getElementById('appsGrid')
-  grid.innerHTML = ''
+  grid.replaceChildren()
   if (!apps.length) return
 
   if (!categories || !categories.length) {
     grid.classList.remove('categorized')
-    grid.innerHTML = apps.map(appCard).join('')
+    grid.append(...apps.map(appCard))
     return
   }
 
@@ -302,39 +347,34 @@ function renderApps(apps, categories) {
     }
   })
 
-  const sections = []
-
   categories.forEach(cat => {
     const list = catApps[cat.id]
     if (!list.length) return
-    sections.push(`<div class="cat-section">
-      <div class="cat-header">${cat.name}</div>
-      <div class="apps-grid cat-grid">${list.map(appCard).join('')}</div>
-    </div>`)
+    const section = el('div', 'cat-section')
+    section.append(el('div', 'cat-header', cat.name), appGrid(list, 'apps-grid cat-grid'))
+    grid.append(section)
   })
 
   if (uncategorized.length) {
-    const header = categories.length ? '<div class="cat-header">Autres</div>' : ''
-    sections.push(`<div class="cat-section">
-      ${header}
-      <div class="apps-grid cat-grid">${uncategorized.map(appCard).join('')}</div>
-    </div>`)
+    const section = el('div', 'cat-section')
+    section.append(el('div', 'cat-header', 'Autres'), appGrid(uncategorized, 'apps-grid cat-grid'))
+    grid.append(section)
   }
-
-  grid.innerHTML = sections.join('')
 }
 
 async function loadApps() {
   try {
     const [appsRes, catsRes] = await Promise.all([
       fetch('/api/apps', { headers: authHeaders() }),
-      fetch('/api/categories')
+      fetch('/api/categories', { headers: authHeaders() })
     ])
     if (!appsRes.ok) return
     const apps = await appsRes.json()
     const cats = catsRes.ok ? await catsRes.json() : []
     renderApps(apps, cats)
-  } catch {}
+  } catch (err) {
+    console.error('[apps]', err)
+  }
 }
 
 loadApps()
@@ -346,8 +386,6 @@ const elSettingsBtn     = document.getElementById('settingsBtn')
 const elSettingsOverlay = document.getElementById('settingsOverlay')
 const elLoginPanel      = document.getElementById('loginPanel')
 const elSettingsPanel   = document.getElementById('settingsPanel')
-const elLoginTitle      = document.getElementById('loginTitle')
-const elLoginHint       = document.getElementById('loginHint')
 const elLoginInput      = document.getElementById('loginInput')
 const elLoginError      = document.getElementById('loginError')
 const elLoginCancel     = document.getElementById('loginCancel')
@@ -364,24 +402,22 @@ const elAddCatBtn       = document.getElementById('addCatBtn')
 const elAddCatForm      = document.getElementById('addCatForm')
 const elAddCatCancel    = document.getElementById('addCatCancel')
 const elAddCatSubmit    = document.getElementById('addCatSubmit')
+const elSettingsError   = document.getElementById('settingsError')
 
 async function checkAuth() {
-  if (!sessionToken) return { ok: false, setup: false }
+  if (!sessionToken) return false
   try {
     const r = await fetch('/api/auth/check', { headers: authHeaders() })
-    return await r.json()
-  } catch { return { ok: false, setup: false } }
+    return (await r.json()).ok === true
+  } catch { return false }
 }
 
-function showLoginPanel(hint, isSetup = false) {
+function showLoginPanel() {
   elLoginPanel.removeAttribute('hidden')
   elSettingsPanel.setAttribute('hidden', '')
   elLoginInput.value = ''
   elLoginError.setAttribute('hidden', '')
   elLoginError.textContent = ''
-  elLoginHint.textContent = hint
-  elLoginSubmit.textContent = isSetup ? 'Définir' : 'Connexion'
-  elLoginTitle.textContent = isSetup ? 'Créer un mot de passe' : 'Accès paramètres'
   setTimeout(() => elLoginInput.focus(), 50)
 }
 
@@ -389,13 +425,10 @@ async function openSettings() {
   elLoginPanel.setAttribute('hidden', '')
   elSettingsPanel.setAttribute('hidden', '')
   elSettingsOverlay.removeAttribute('hidden')
-  const { ok, setup } = await checkAuth()
-  if (ok) {
+  if (await checkAuth()) {
     showSettingsPanel()
-  } else if (setup) {
-    showLoginPanel('Premier accès : choisissez un mot de passe', true)
   } else {
-    showLoginPanel('Entrez votre mot de passe')
+    showLoginPanel()
   }
 }
 
@@ -408,13 +441,32 @@ async function showSettingsPanel() {
   elSettingsPanel.removeAttribute('hidden')
   elAddAppForm.setAttribute('hidden', '')
   elAddCatForm.setAttribute('hidden', '')
+  showSettingsError('')
   initSettingsSearch()
   loadApps()
   await refreshSettings()
 }
 
+function showSettingsError(message) {
+  elSettingsError.textContent = message
+  elSettingsError.hidden = !message
+}
+
+// Envoie une écriture et affiche le refus du serveur au lieu de l'avaler.
+async function send(url, method, body) {
+  const r = await fetch(url, { method, headers: jsonHeaders(), body: body === undefined ? undefined : JSON.stringify(body) })
+  if (!r.ok) {
+    const data = await r.json().catch(() => ({}))
+    showSettingsError(data.error || `Erreur ${r.status}`)
+    return null
+  }
+  showSettingsError('')
+  return r
+}
+
 // ── Settings data ─────────────────────────────────────────────
 let _settingsCats = []
+let _settingsApps = []
 
 async function refreshSettings() {
   try {
@@ -422,80 +474,86 @@ async function refreshSettings() {
       fetch('/api/apps', { headers: authHeaders() }),
       fetch('/api/categories', { headers: authHeaders() })
     ])
-    const apps = appsRes.ok ? await appsRes.json() : []
+    _settingsApps = appsRes.ok ? await appsRes.json() : []
     _settingsCats = catsRes.ok ? await catsRes.json() : []
     renderSettingsCats(_settingsCats)
-    renderSettingsApps(apps, _settingsCats)
-  } catch {}
+    renderSettingsApps(_settingsApps, _settingsCats)
+  } catch (err) {
+    console.error('[settings]', err)
+  }
+}
+
+function iconButton(action, id, label, title, extraClass = '') {
+  const btn = el('button', `btn-icon${extraClass ? ' ' + extraClass : ''}`, label)
+  btn.type = 'button'
+  btn.title = title
+  btn.dataset.action = action
+  btn.dataset.id = String(id)
+  return btn
 }
 
 // ── Categories settings ───────────────────────────────────────
 function renderSettingsCats(cats) {
-  elSettingsCatList.innerHTML = cats.length
-    ? cats.map((cat, i) => `
-      <div class="cat-row" data-id="${cat.id}" data-order="${cat.order_index}" data-name="${cat.name.replace(/"/g,'&quot;')}">
-        <span class="cat-row-name">${cat.name}</span>
-        <div class="cat-row-actions">
-          <button class="btn-icon${i === 0 ? ' disabled' : ''}" onclick="moveCat(${cat.id},'up')" title="Monter" ${i === 0 ? 'disabled' : ''}>↑</button>
-          <button class="btn-icon${i === cats.length-1 ? ' disabled' : ''}" onclick="moveCat(${cat.id},'down')" title="Descendre" ${i === cats.length-1 ? 'disabled' : ''}>↓</button>
-          <button class="btn-icon" onclick="renameCat(${cat.id})" title="Renommer">✏️</button>
-          <button class="btn-icon danger" onclick="deleteCat(${cat.id},'${cat.name.replace(/'/g,"\\'")}')">🗑</button>
-        </div>
-      </div>`
-    ).join('')
-    : '<div class="settings-empty">Aucune catégorie</div>'
+  if (!cats.length) {
+    elSettingsCatList.replaceChildren(el('div', 'settings-empty', 'Aucune catégorie'))
+    return
+  }
+  elSettingsCatList.replaceChildren(...cats.map((cat, i) => {
+    const row = el('div', 'cat-row')
+    const actions = el('div', 'cat-row-actions')
+    const up = iconButton('cat-up', cat.id, '↑', 'Monter', i === 0 ? 'disabled' : '')
+    const down = iconButton('cat-down', cat.id, '↓', 'Descendre', i === cats.length - 1 ? 'disabled' : '')
+    up.disabled = i === 0
+    down.disabled = i === cats.length - 1
+    actions.append(up, down,
+      iconButton('cat-rename', cat.id, '✏️', 'Renommer'),
+      iconButton('cat-delete', cat.id, '🗑', 'Supprimer', 'danger'))
+    row.append(el('span', 'cat-row-name', cat.name), actions)
+    return row
+  }))
 }
 
-window.moveCat = async (id, dir) => {
-  const rows = [...document.querySelectorAll('.cat-row')]
-  const idx  = rows.findIndex(r => r.dataset.id == id)
-  if (idx === -1) return
+async function moveCat(id, dir) {
+  const idx = _settingsCats.findIndex(c => c.id === id)
   const swapIdx = dir === 'up' ? idx - 1 : idx + 1
-  if (swapIdx < 0 || swapIdx >= rows.length) return
-
-  const a = rows[idx]
-  const b = rows[swapIdx]
-  const aOrder = parseInt(a.dataset.order)
-  const bOrder = parseInt(b.dataset.order)
-
+  if (idx === -1 || swapIdx < 0 || swapIdx >= _settingsCats.length) return
+  const a = _settingsCats[idx]
+  const b = _settingsCats[swapIdx]
   await Promise.all([
-    fetch(`/api/categories/${a.dataset.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ name: a.dataset.name, order_index: bOrder })
-    }),
-    fetch(`/api/categories/${b.dataset.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ name: b.dataset.name, order_index: aOrder })
-    })
+    send(`/api/categories/${a.id}`, 'PUT', { name: a.name, order_index: b.order_index }),
+    send(`/api/categories/${b.id}`, 'PUT', { name: b.name, order_index: a.order_index })
   ])
   await refreshSettings()
   loadApps()
 }
 
-window.renameCat = async (id) => {
-  const row = document.querySelector(`.cat-row[data-id="${id}"]`)
-  if (!row) return
-  const current = row.dataset.name
-  const order   = parseInt(row.dataset.order)
-  const newName = prompt('Nouveau nom :', current)
-  if (!newName || newName === current) return
-  await fetch(`/api/categories/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name: newName, order_index: order })
-  })
+async function renameCat(id) {
+  const cat = _settingsCats.find(c => c.id === id)
+  if (!cat) return
+  const newName = prompt('Nouveau nom :', cat.name)
+  if (!newName || newName === cat.name) return
+  await send(`/api/categories/${id}`, 'PUT', { name: newName, order_index: cat.order_index })
   await refreshSettings()
   loadApps()
 }
 
-window.deleteCat = async (id, name) => {
-  if (!confirm(`Supprimer la catégorie "${name}" ? Les apps seront désassignées.`)) return
-  await fetch(`/api/categories/${id}`, { method: 'DELETE', headers: authHeaders() })
+async function deleteCat(id) {
+  const cat = _settingsCats.find(c => c.id === id)
+  if (!cat || !confirm(`Supprimer la catégorie "${cat.name}" ? Les apps seront désassignées.`)) return
+  await send(`/api/categories/${id}`, 'DELETE')
   await refreshSettings()
   loadApps()
 }
+
+elSettingsCatList.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn || btn.disabled) return
+  const id = Number(btn.dataset.id)
+  if (btn.dataset.action === 'cat-up') moveCat(id, 'up')
+  if (btn.dataset.action === 'cat-down') moveCat(id, 'down')
+  if (btn.dataset.action === 'cat-rename') renameCat(id)
+  if (btn.dataset.action === 'cat-delete') deleteCat(id)
+})
 
 elAddCatBtn.addEventListener('click', () => {
   elAddCatForm.removeAttribute('hidden')
@@ -509,12 +567,8 @@ elAddCatCancel.addEventListener('click', () => {
 elAddCatSubmit.addEventListener('click', async () => {
   const name = document.getElementById('newCatName').value.trim()
   if (!name) return
-  const maxOrder = _settingsCats.reduce((m, c) => Math.max(m, c.order_index), -1)
-  await fetch('/api/categories', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name, order_index: maxOrder + 1 })
-  })
+  const maxOrder = _settingsCats.reduce((m, c) => Math.max(m, Number(c.order_index) || 0), -1)
+  if (!await send('/api/categories', 'POST', { name, order_index: maxOrder + 1 })) return
   document.getElementById('newCatName').value = ''
   elAddCatForm.setAttribute('hidden', '')
   elAddCatBtn.removeAttribute('hidden')
@@ -525,101 +579,94 @@ document.getElementById('newCatName').addEventListener('keydown', e => {
 })
 
 // ── Apps settings ─────────────────────────────────────────────
-function catSelect(cats, currentCatId) {
-  const opts = cats.map(c =>
-    `<option value="${c.id}" ${c.id == currentCatId ? 'selected' : ''}>${c.name}</option>`
-  ).join('')
-  return `<select class="cat-select" onchange="setAppCat(this)">
-    <option value="" ${!currentCatId ? 'selected' : ''}>—</option>
-    ${opts}
-  </select>`
+function catSelect(cats, app) {
+  const select = el('select', 'cat-select')
+  select.dataset.id = String(app.id)
+  const none = el('option', '', '—')
+  none.value = ''
+  select.append(none, ...cats.map(c => {
+    const opt = el('option', '', c.name)
+    opt.value = String(c.id)
+    return opt
+  }))
+  select.value = app.category_id ? String(app.category_id) : ''
+  return select
 }
 
 function renderSettingsApps(apps, cats) {
-  elSettingsAppList.innerHTML = apps.map(app => {
-    const initial = (app.name || '?').slice(0, 2).toUpperCase()
-    const iconHtml = app.icon
-      ? `<img class="app-row-icon" src="${app.icon}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'app-row-icon-fallback',textContent:'${initial}'}))">`
-      : `<div class="app-row-icon-fallback">${initial}</div>`
+  elSettingsAppList.replaceChildren(...apps.map(app => {
+    const row = el('div', 'app-row')
     const isPublic = !!app.public
-    return `<div class="app-row" data-id="${app.id}" data-url="${app.url}" data-icon="${app.icon ?? ''}" data-public="${isPublic ? '1' : '0'}" data-cat="${app.category_id ?? ''}">
-      ${iconHtml}
-      <span class="app-row-name">${app.name}</span>
-      ${cats.length ? catSelect(cats, app.category_id) : ''}
-      <button class="btn-icon app-public-toggle ${isPublic ? 'public' : ''}" onclick="togglePublic(${app.id})" title="${isPublic ? 'Public' : 'Privé'}">${isPublic ? '🌐' : '🔒'}</button>
-      <button class="btn-icon" onclick="editApp(${app.id})" title="Modifier">✏️</button>
-      <button class="btn-icon danger" onclick="deleteApp(${app.id},'${app.name.replace(/'/g,"\\'")}')">🗑</button>
-    </div>`
-  }).join('')
+    row.append(iconNode(app, 'app-row-icon', 'app-row-icon-fallback'), el('span', 'app-row-name', app.name))
+    if (cats.length) row.append(catSelect(cats, app))
+    row.append(
+      iconButton('app-public', app.id, isPublic ? '🌐' : '🔒', isPublic ? 'Public' : 'Privé', `app-public-toggle${isPublic ? ' public' : ''}`),
+      iconButton('app-edit', app.id, '✏️', 'Modifier'),
+      iconButton('app-delete', app.id, '🗑', 'Supprimer', 'danger'))
+    return row
+  }))
 }
 
-window.setAppCat = async (select) => {
-  const row = select.closest('.app-row')
-  if (!row) return
-  const id       = row.dataset.id
-  const name     = row.querySelector('.app-row-name').textContent
-  const url      = row.dataset.url
-  const icon     = row.dataset.icon
-  const isPublic = row.dataset.public === '1'
-  const catId    = select.value ? parseInt(select.value) : null
-  await fetch(`/api/apps/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name, url, icon, order_index: 0, public: isPublic, category_id: catId })
-  })
-  row.dataset.cat = catId ?? ''
-  loadApps()
+function appPayload(app, changes) {
+  return {
+    name: app.name,
+    url: app.url,
+    icon: app.icon || '',
+    order_index: Number.isInteger(app.order_index) ? app.order_index : 0,
+    public: !!app.public,
+    category_id: app.category_id ?? null,
+    ...changes,
+  }
 }
 
-window.togglePublic = async (id) => {
-  const row = document.querySelector(`.app-row[data-id="${id}"]`)
-  if (!row) return
-  const name     = row.querySelector('.app-row-name').textContent
-  const url      = row.dataset.url
-  const icon     = row.dataset.icon
-  const isPublic = row.dataset.public === '1'
-  const catId    = row.dataset.cat ? parseInt(row.dataset.cat) : null
-  const r = await fetch(`/api/apps/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name, url, icon, order_index: 0, public: !isPublic, category_id: catId })
-  })
-  if (r.ok) refreshSettings()
+async function updateApp(id, changes) {
+  const app = _settingsApps.find(a => a.id === id)
+  if (!app) return
+  if (await send(`/api/apps/${id}`, 'PUT', appPayload(app, changes))) {
+    loadApps()
+    await refreshSettings()
+  }
 }
 
-window.deleteApp = async (id, name) => {
-  if (!confirm(`Supprimer "${name}" ?`)) return
-  await fetch(`/api/apps/${id}`, { method: 'DELETE', headers: authHeaders() })
-  loadApps()
-  refreshSettings()
+async function editApp(id) {
+  const app = _settingsApps.find(a => a.id === id)
+  if (!app) return
+  const name = prompt('Nom :', app.name)
+  if (name === null) return
+  const url = prompt('URL :', app.url)
+  if (url === null) return
+  const icon = prompt('Icône URL :', app.icon || '')
+  await updateApp(id, { name, url, icon: icon ?? app.icon ?? '' })
 }
 
-window.editApp = async (id) => {
-  const row = document.querySelector(`.app-row[data-id="${id}"]`)
-  if (!row) return
-  const name     = row.querySelector('.app-row-name').textContent
-  const url      = row.dataset.url
-  const icon     = row.dataset.icon
-  const isPublic = row.dataset.public === '1'
-  const catId    = row.dataset.cat ? parseInt(row.dataset.cat) : null
-
-  const newName = prompt('Nom :', name)
-  if (newName === null) return
-  const newUrl  = prompt('URL :', url)
-  if (newUrl === null) return
-  const newIcon = prompt('Icône URL :', icon)
-
-  const r = await fetch(`/api/apps/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name: newName, url: newUrl, icon: newIcon ?? icon, order_index: 0, public: isPublic, category_id: catId })
-  })
-  if (r.ok) { loadApps(); refreshSettings() }
+async function deleteApp(id) {
+  const app = _settingsApps.find(a => a.id === id)
+  if (!app || !confirm(`Supprimer "${app.name}" ?`)) return
+  if (await send(`/api/apps/${id}`, 'DELETE')) {
+    loadApps()
+    refreshSettings()
+  }
 }
+
+elSettingsAppList.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-action]')
+  if (!btn) return
+  const id = Number(btn.dataset.id)
+  const app = _settingsApps.find(a => a.id === id)
+  if (btn.dataset.action === 'app-public' && app) updateApp(id, { public: !app.public })
+  if (btn.dataset.action === 'app-edit') editApp(id)
+  if (btn.dataset.action === 'app-delete') deleteApp(id)
+})
+
+elSettingsAppList.addEventListener('change', e => {
+  const select = e.target.closest('select.cat-select')
+  if (!select) return
+  updateApp(Number(select.dataset.id), { category_id: select.value ? Number(select.value) : null })
+})
 
 // ── Login ─────────────────────────────────────────────────────
 elLoginSubmit.addEventListener('click', async () => {
-  const pw = elLoginInput.value.trim()
+  const pw = elLoginInput.value
   if (!pw) return
   elLoginError.setAttribute('hidden', '')
   const r = await fetch('/api/auth/login', {
@@ -627,8 +674,8 @@ elLoginSubmit.addEventListener('click', async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ password: pw })
   })
-  const data = await r.json()
-  if (r.ok) {
+  const data = await r.json().catch(() => ({}))
+  if (r.ok && data.token) {
     sessionToken = data.token
     localStorage.setItem('sessionToken', sessionToken)
     await loadServerSettings()
@@ -653,8 +700,28 @@ elSettingsClose.addEventListener('click', closeSettings)
 elSettingsOverlay.addEventListener('click', e => { if (e.target === elSettingsOverlay) closeSettings() })
 elSettingsBtn.addEventListener('click', openSettings)
 
+// ── Mot de passe ──────────────────────────────────────────────
+document.getElementById('changePasswordBtn').addEventListener('click', async () => {
+  const current = document.getElementById('currentPassword')
+  const next = document.getElementById('newPassword')
+  const confirmField = document.getElementById('confirmPassword')
+  if (next.value !== confirmField.value) {
+    showSettingsError('Les deux nouveaux mots de passe diffèrent.')
+    return
+  }
+  const r = await send('/api/auth/password', 'POST', { current: current.value, next: next.value })
+  if (!r) return
+  // Toutes les autres sessions sont révoquées, celle-ci est remplacée.
+  sessionToken = (await r.json()).token
+  localStorage.setItem('sessionToken', sessionToken)
+  current.value = next.value = confirmField.value = ''
+  showSettingsError('Mot de passe changé. Les autres sessions sont déconnectées.')
+})
+
 // ── Settings search section ───────────────────────────────────
-async function initSettingsSearch() {
+let _searchInitDone = false
+
+function initSettingsSearch() {
   const sel = document.getElementById('settingsEngineSelect')
   const customRow = document.getElementById('customEngineRow')
   const customUrl = document.getElementById('customEngineUrl')
@@ -665,6 +732,9 @@ async function initSettingsSearch() {
   customRow.hidden = currentEngine !== 'custom'
   if (currentEngine === 'custom') customUrl.value = ENGINES.custom.url
 
+  if (_searchInitDone) return
+  _searchInitDone = true
+
   sel.addEventListener('change', () => {
     const key = sel.value
     customRow.hidden = key !== 'custom'
@@ -672,8 +742,11 @@ async function initSettingsSearch() {
   })
 
   saveBtn.addEventListener('click', async () => {
-    const url = customUrl.value.trim()
-    if (!url) return
+    const url = safeHttpUrl(customUrl.value.trim())
+    if (!url) {
+      showSettingsError('Adresse du moteur : http ou https uniquement.')
+      return
+    }
     ENGINES.custom.url = url
     applyEngine('custom', true)
   })
@@ -694,12 +767,7 @@ elAddAppSubmit.addEventListener('click', async () => {
   const url  = document.getElementById('newAppUrl').value.trim()
   const icon = document.getElementById('newAppIcon').value.trim()
   if (!name || !url) return
-  const r = await fetch('/api/apps', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ name, url, icon })
-  })
-  if (r.ok) {
+  if (await send('/api/apps', 'POST', { name, url, icon })) {
     document.getElementById('newAppName').value = ''
     document.getElementById('newAppUrl').value  = ''
     document.getElementById('newAppIcon').value = ''

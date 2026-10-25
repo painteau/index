@@ -12,8 +12,47 @@ L'historique git reste la source de vérité pour ce qui précède.
 
 ## [Unreleased]
 
+### Sécurité
+
+Audit du 2026-10-25. L'empreinte du mot de passe était lisible sans connexion : **le mot
+de passe d'avant cette version est à tenir pour compromis**, l'ancienne empreinte n'ouvre
+plus de session et un nouveau mot de passe se pose avec `npm run hash-password`.
+
+- `GET /api/settings` exige une session et ne rend que les réglages de recherche et de
+  météo, jamais `admin_password`. Une version antérieure du code enregistrait même le mot
+  de passe en clair dans cette table.
+- Mot de passe haché en PBKDF2-SHA256 salé (100 000 itérations, plafond de Workers) au lieu
+  d'un SHA-256 sans sel, comparaison à temps constant. Plus de « premier accès » qui laissait
+  le premier venu choisir le mot de passe d'une base vide.
+- Changement de mot de passe depuis les paramètres, qui révoque toutes les sessions. Jetons
+  de session stockés sous forme d'empreinte, sessions expirées purgées à la connexion.
+- Anti-force-brute : un verrou expiré repart de zéro au lieu de se reposer pour toujours, le
+  compteur monte avant la vérification (plus de contournement par requêtes parallèles), une
+  adresse IPv6 compte par /64, une requête mal formée ou non JSON n'est plus comptée.
+- `public/apps.json` supprimé : ce reste d'import publiait 44 adresses d'administration à
+  l'adresse `/apps.json`, en contournant le drapeau `public` des tuiles.
+- Plus aucun `innerHTML` ni gestionnaire en ligne : un nom de tuile ne peut plus devenir du
+  code (douze points d'injection, dont un échappement d'`onclick` contournable). URL de tuile,
+  d'icône et de moteur personnalisé en `http(s)` seulement, côté API comme côté page.
+- Entrées validées : types, longueurs, catégorie existante, caractères invisibles et bidi
+  retirés ; une erreur interne ne renvoie plus son message.
+- CORS retiré (l'API ne sert que sa propre page). En-têtes de sécurité sur l'API et, via
+  `public/_headers`, sur le site : CSP sans script en ligne, pas d'encadrement.
+- Vie privée : coordonnées arrondies à 2 décimales (environ 1 km) avant Open-Meteo et
+  Nominatim, plus de favicons demandés à Google pour chaque tuile sans icône.
+- Un anonyme ne voit plus que les catégories qui contiennent une tuile publique.
+
+### Ajouté
+
+- Tests (`npm test`, `node --test` avec D1 simulé par `node:sqlite`), lancés en CI à chaque
+  push ; chaque correctif ci-dessus a été retiré un par un pour vérifier qu'un test échoue.
+- `scripts/hash-password.mjs` et migration complète et rejouable (`sessions`,
+  `login_attempts`, colonne `public`), qui manquaient au dépôt.
+
 ### Modifié
 
+- Serveur de développement limité à `127.0.0.1`. README : licence BZ-1.1 (il annonçait MIT),
+  routes réelles, pose du mot de passe et publication.
 - **Adresse de l'association : 34 rue Decomberousse, 69100 Villeurbanne** (le siège quitte le 4 rue Isabelle Sadoyan), dans `LICENSE.md`.
 
 ## [0.2.0] - 2026-10-25

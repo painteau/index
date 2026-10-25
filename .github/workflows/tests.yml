@@ -1,0 +1,29 @@
+name: Tests
+
+# Verification seulement : rien ne se deploie d'ici (le site se publie a la main
+# depuis un tag, voir README). Les tests simulent D1 avec node:sqlite.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests de l'API et du client
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Tests
+        run: npm test
