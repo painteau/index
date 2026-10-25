@@ -12,6 +12,8 @@ L'historique git reste la source de vérité pour ce qui précède.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-25
+
 ### Sécurité
 
 Audit du 2026-10-25. L'empreinte du mot de passe était lisible sans connexion : **le mot
