@@ -12,6 +12,12 @@ L'historique git reste la source de vérité pour ce qui précède.
 
 ## [Unreleased]
 
+### Retiré
+
+- **Moteur de recherche Whoogle** (`google.onode.fr`), service supprimé le 2026-10-25. Un
+  navigateur qui l'avait choisi retombe sur Google, `applyEngine` le faisant déjà pour une clé
+  inconnue. Entrée morte retirée aussi de `public/apps.json`.
+
 ### Modifié
 
 - **`actions/checkout` et `actions/setup-node` passent en v7** dans les workflows : les versions

@@ -50,7 +50,6 @@ const ENGINES = {
   brave:      { name: 'Brave',        icon: 'B',  url: 'https://search.brave.com/search?q=' },
   bing:       { name: 'Bing',         icon: 'Bi', url: 'https://www.bing.com/search?q=' },
   qwant:      { name: 'Qwant',        icon: 'Q',  url: 'https://www.qwant.com/?q=' },
-  whoogle:    { name: 'Whoogle',      icon: 'W',  url: 'https://google.onode.fr/search?q=' },
   custom:     { name: 'Personnalisé', icon: '✦',  url: '' },
 }
 

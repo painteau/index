@@ -30,7 +30,6 @@
   { "id":29, "name":"InvoiceNinja",    "url":"https://facturation.breizhzion.com",       "icon":"https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/invoiceninja.png" },
   { "id":30, "name":"Changedetection", "url":"https://changedetection.onode.fr",         "icon":"https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/changedetection-io.png" },
   { "id":31, "name":"Scanservjs",      "url":"https://scan.onode.fr",                    "icon":"https://cdn.jsdelivr.net/gh/selfhst/icons/png/scanservjs.png" },
-  { "id":32, "name":"CubeBackup",      "url":"https://google.onode.fr",                  "icon":"https://cdn.jsdelivr.net/gh/selfhst/icons/png/cubebackup.png" },
   { "id":33, "name":"Tabbz",           "url":"https://tabby.gochu.fr",                   "icon":"https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/tabby.png" },
   { "id":34, "name":"Termix",          "url":"https://termix.onode.fr",                  "icon":"https://cdn.jsdelivr.net/gh/selfhst/icons/png/ttyd.png" },
   { "id":35, "name":"Grafana",         "url":"https://grafana.onode.fr",                 "icon":"https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/grafana.png" },
